@@ -5,10 +5,6 @@ RUN apt-get -y update \
   && apt-get -y upgrade \
   && apt-get -y install vim \
   nginx \
-  python-dev \
-  python-flup \
-  python-pip \
-  python-ldap \
   expect \
   git \
   memcached \
@@ -16,10 +12,12 @@ RUN apt-get -y update \
   libffi-dev \
   libcairo2 \
   libcairo2-dev \
-  python-cairo \
-  python-rrdtool \
   pkg-config \
   nodejs \
+  python3-dev \
+  python3-pip \
+  python3-cairo \
+  python3-pycparser \
   && rm -rf /var/lib/apt/lists/*
 
 # choose a timezone at build-time
@@ -33,19 +31,31 @@ RUN if [ ! -z "${CONTAINER_TIMEZONE}" ]; \
     fi
 
 # fix python dependencies (LTS Django and newer memcached/txAMQP)
-RUN pip install --upgrade pip && \
-  pip install django==1.8.18 \
-  python-memcached==1.53 \
-  txAMQP==0.6.2
+RUN pip3 install --upgrade pip && \
+  pip3 install django==1.11.8 \
+  python-memcached \
+  txAMQP \
+  gunicorn \
+  ldap \
+  simplejson \
+  django-tagging==0.4.3 \
+  pytz \
+  pyparsing \
+  cairocffi \
+  whitenoise \
+  scandir \
+  urllib3 \
+  six
 
-ARG version=1.1.0-pre4
+ARG version=master
 ARG whisper_version=${version}
 ARG carbon_version=${version}
-ARG graphite_version=${version}
+ARG graphite_version=py3
 
 ARG whisper_repo=https://github.com/graphite-project/whisper.git
 ARG carbon_repo=https://github.com/graphite-project/carbon.git
-ARG graphite_repo=https://github.com/graphite-project/graphite-web.git
+#ARG graphite_repo=https://github.com/graphite-project/graphite-web.git
+ARG graphite_repo=https://github.com/takluyver/graphite-web.git
 
 ARG statsd_version=v0.8.0
 
@@ -54,19 +64,21 @@ ARG statsd_repo=https://github.com/etsy/statsd.git
 # install whisper
 RUN git clone -b ${whisper_version} --depth 1 ${whisper_repo} /usr/local/src/whisper
 WORKDIR /usr/local/src/whisper
-RUN python ./setup.py install
+RUN python3 ./setup.py install
 
 # install carbon
 RUN git clone -b ${carbon_version} --depth 1 ${carbon_repo} /usr/local/src/carbon
 WORKDIR /usr/local/src/carbon
-RUN pip install -r requirements.txt \
-  && python ./setup.py install
+RUN pip3 install -r requirements.txt \
+  && python3 ./setup.py install
 
 # install graphite
 RUN git clone -b ${graphite_version} --depth 1 ${graphite_repo} /usr/local/src/graphite-web
 WORKDIR /usr/local/src/graphite-web
-RUN pip install -r requirements.txt \
-  && python ./setup.py install
+#RUN pip3 install -r requirements.txt \
+#  && python3 ./setup.py install
+RUN python3 ./setup.py install
+
 
 # install statsd
 RUN git clone -b ${statsd_version} ${statsd_repo} /opt/statsd
@@ -77,7 +89,7 @@ ADD conf/opt/graphite/webapp/graphite/local_settings.py /opt/graphite/webapp/gra
 # ADD conf/opt/graphite/webapp/graphite/app_settings.py /opt/graphite/webapp/graphite/app_settings.py
 WORKDIR /opt/graphite/webapp
 RUN mkdir -p /var/log/graphite/ \
-  && PYTHONPATH=/opt/graphite/webapp django-admin.py collectstatic --noinput --settings=graphite.settings
+  && PYTHONPATH=/opt/graphite/webapp python3 /usr/local/bin/django-admin.py collectstatic --noinput --settings=graphite.settings
 
 # config statsd
 ADD conf/opt/statsd/config_*.js /opt/statsd/
