@@ -20,6 +20,7 @@ RUN apt-get -y update \
   python-rrdtool \
   pkg-config \
   nodejs \
+  iptables \
   && rm -rf /var/lib/apt/lists/*
 
 # choose a timezone at build-time
